@@ -1,5 +1,12 @@
 # bitbar-plugins
 
+## Installation
+
+1. Install fantastic bitbar application for mac (https://github.com/matryer/bitbar)
+2. Clone this repo
+3. Create enabled folder inside bitbar-plugins directory
+4. Launch BitBar and select the `enabled` folder in your BitBar preferences.
+
 ## Using symlinks
 
 Because Git will ignore everything in `bitbar-plugins/enabled`, you can use it to maintain your own plugins directory while still benefitting from tracking (upstream) changes.
