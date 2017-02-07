@@ -18,9 +18,9 @@ fi
 num_procs=$(ssh bocconi_oracle 'ps -ef | grep oracle | wc -l')
 
 # Imposto le soglie
-procs_warning=1000
-procs_alert=1400
-procs_panic=1700
+procs_warning=1400
+procs_alert=1600
+procs_panic=1800
 
 warning_msg="Attenzione. In Bocconi ci sono ${num_procs} processi oracle attivi"
 alert_msg="Attenzione. In Bocconi ci sono ${num_procs} processi oracle attivi"
@@ -64,12 +64,49 @@ select count(*),sum(decode(status, 'ACTIVE',1,0)) from v\\\$session where type= 
 
 cmd_data=$(ssh bocconi_oracle ". .profile_ESSE3; echo \"$active_sessions\" | sqlplus -s / as sysdba")
 
-echo "Session count:" $(echo $cmd_data | awk '{print $1}')
-echo "Active sessions:" $(echo $cmd_data | awk '{print $2}')
+sess_count=$(echo $cmd_data | awk '{print $1}')
+active_count=$(echo $cmd_data | awk '{print $2}')
+
+echo "Session count:" $sess_count
+
+if [ $active_count -lt 15 ]; then
+  echo "Active sessions: $(echo $cmd_data | awk '{print $2}')"
+elif [ $active_count -lt 50 ]; then
+  echo "Active sessions: $(echo $cmd_data | awk '{print $2}') |color=orange"
+else
+  echo "Active sessions: $(echo $cmd_data | awk '{print $2}') |color=red"
+  osascript -e 'display notification "'"Troppe sessioni attive"'" with title "Sessioni attive"'
+  say -v alice "ATTENZIONE, In questo momento in Bocconi ci sono più di 50 sessioni attive"
+fi
+
+# Top user session count per utente
+# ---------------------------------
+active_sessions_per_user="
+set heading off;
+select username, count(*) || '-' from v\\\$session where type = 'USER' group by username having count(*) > 10 order by count(*) desc;
+"
+# commentato
+#cmd_data=$(ssh bocconi_oracle ". .profile_ESSE3; echo \"$active_sessions_per_user\" | sqlplus -s / as sysdba")
+
+cmd_data=$(echo $cmd_data | sed -e $'s/-/\\\n/g')
+
+
+# Invalid objects count(*)
+# ------------------------
+invalid_objects="
+set heading off;
+set verify off;
+select count(*) from all_objects where status = 'INVALID';
+"
+cmd_data=$(ssh bocconi_oracle ". .profile_ESSE3; echo \"$invalid_objects\" | sqlplus -s -L / as sysdba")
+cmd_data=$(echo $cmd_data | sed -e $'s/-/\\\n/g')
+echo "Invalid objects: $cmd_data"
 
 # menu
 # ----
 echo "---"
+
+echo "Get remote alert_ESSE3_1.log | terminal=true bash=/usr/bin/scp param1=bocconi_oracle:/u01/app/oracle/diag/rdbms/esse3/ESSE3_1/trace/alert_ESSE3_1.log param2=/tmp/alert_ESSE3_1.log " #&& /usr/local/bin/atom /tmp/alert_ESSE3_1.log
 echo "Apri enterprise manager (sysman/mangoxx1)... | href=https://ks3-rcatem.sm.unibocconi.it:7802/em/faces/sdk/nonFacesWrapper?target=ESSE3&_em.coBM=/console/rac/racTopActivity%3FrefreshChoice%3DRT_15%26event%3DdoLoad%26target%3DESSE3%26type%3Drac_database%26waitClass%3DOverview&type=rac_database&_afrLoop=3974850672928603&_afrWindowMode=0&_afrWindowId=b0mk5uuz9_6#!%40%40%3Ftarget%3DESSE3%26_em.coBM%3D%252Fconsole%252Frac%252FracTopActivity%253Fevent%253DmoveSlider%2526target%253DESSE3%2526type%253Drac_database%2526waitClass%253DOverview%2526tabName%253Dundefined%2526selectedBand%253D1%2526leftEdge%253D1476706589531%2526rightEdge%253D1476706889531%2526refreshChoice%253DRT_15%2526aggregationChoice%253DWaits%2526selectedAction%253Dundefined%26type%3Drac_database%26_adf.ctrl-state%3Db0mk5uuz9_51"
 
 echo "---"
